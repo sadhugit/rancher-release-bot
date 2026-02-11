@@ -1,0 +1,23 @@
+To generate your SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET, you need to create an app within your Slack workspace using the Slack API website and configure its permissions. 
+Step 1: Create a Slack App
+Navigate to the Slack API: Your Apps page and sign in to your workspace.
+Click Create New App and select the From scratch option.
+Enter an App Name and select your development Workspace from the dropdown menu. Click Create App. 
+
+Step 2: Retrieve the Signing Secret (SLACK_SIGNING_SECRET) 
+From your app's basic information page, navigate to Settings > Basic Information in the left sidebar.
+Scroll down to the App Credentials section.
+You will find the Signing Secret listed here. Copy and save this value securely; it is your SLACK_SIGNING_SECRET. 
+
+Step 3: Configure Bot Scopes and Install the App 
+In the left sidebar, under Features, click OAuth & Permissions.
+Scroll down to the Scopes section. Under Bot Token Scopes, click Add an OAuth Scope.
+Add the necessary permissions for your app (e.g., chat:write, app_mentions:read). The specific scopes needed will depend on your bot's functionality.
+Scroll to the top of the OAuth & Permissions page and click Install App to Workspace.
+Review the permissions requested and click Allow to authorize the installation. 
+
+Step 4: Retrieve the Bot Token (SLACK_BOT_TOKEN) 
+After installation, you will be redirected back to the OAuth & Permissions page.
+In the OAuth Tokens for Your Workspace section, you will see a Bot User OAuth Token (it starts with xoxb-).
+Copy and save this value securely; it is your SLACK_BOT_TOKEN. Never commit this token to version control. 
+You now have both the SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET required to configure your Slack bot application. You can set them as environment variables in your project. 
