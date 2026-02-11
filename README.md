@@ -49,7 +49,7 @@ curl http://localhost:8000/health
 ## Features
 
 - ✅ Automatic release monitoring (every 2 hours)
-- ✅ AI-powered analysis with Claude
+- ✅ AI-powered analysis with Gemini
 - ✅ Smart Slack notifications
 - ✅ Interactive slash commands
 - ✅ Jira/ServiceNow integration
