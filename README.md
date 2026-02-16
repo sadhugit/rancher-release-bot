@@ -103,7 +103,7 @@ python --version  # Should be 3.9+
 
 ## Support
 
-- GitHub Issues: [Your repo]
+- GitHub Issues: [https://github.com/rancher/rancher]
 - Slack: #rancher-bot-support
-- Email: devops@company.com
+
 
