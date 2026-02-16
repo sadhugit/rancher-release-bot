@@ -52,8 +52,8 @@ curl http://localhost:8000/health
 - ✅ AI-powered analysis with Gemini
 - ✅ Smart Slack notifications
 - ✅ Interactive slash commands
-- ✅ Jira/ServiceNow integration
-- ✅ Knowledge base linking
+-  Jira/ServiceNow integration
+-  Knowledge base linking
 
 ## Architecture
 
