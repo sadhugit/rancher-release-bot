@@ -58,7 +58,7 @@ curl http://localhost:8000/health
 ## Architecture
 
 ```
-GitHub → Monitor → Claude AI → Database → Slack
+GitHub → Monitor → Gemini AI → Database → Slack
                         ↓
                    Jira/ServiceNow
 ```
