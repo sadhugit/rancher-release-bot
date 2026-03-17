@@ -21,7 +21,7 @@ cp .env.example .env
 ### 2. Get API Keys
 
 - **GitHub**: https://github.com/settings/tokens (scope: `repo`)
-- **Claude**: https://console.anthropic.com/settings/keys
+- **Gemini**: aistudio.google.com/apikey
 - **Slack**: https://api.slack.com/apps (scopes: `chat:write`, `commands`)
 
 ### 3. Run
