@@ -5,7 +5,8 @@ FIXED: Event loop compatibility with FastAPI
 """
 
 from slack_bolt.async_app import AsyncApp
-from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
+#from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
+from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 from typing import Dict
 import asyncio
 
@@ -19,44 +20,81 @@ class SlackBot:
             token=config['bot_token'],
             signing_secret=config['signing_secret']
         )
+
+
+        # Socket Mode handler — uses app_token (xapp-)
+        self.socket_handler = AsyncSocketModeHandler(
+            app=self.app,
+            app_token=config['app_token']
+        )
         
-        # Create FastAPI handler
-        self.handler = AsyncSlackRequestHandler(self.app)
+        # Create FastAPI handler for HTTP requests (slash commands, events)
+        #self.handler = AsyncSlackRequestHandler(self.app)
         
         self._setup_commands()
     
     def _setup_commands(self):
         """Setup Slack command handlers"""
         
+        # @self.app.command("/rancher-release")
+        # async def handle_release(ack, command, say):
+        #     await ack()
+            
+        #     version = command.get('text', '').strip() or 'latest'
+            
+        #     print(f"📝 Slack command: /rancher-release {version}")
+            
+        #     if version == 'latest':
+        #         release = await self.db.get_latest_release()
+        #     else:
+        #         release = await self.db.get_release(version)
+            
+        #     if not release:
+        #         await say(f"❌ Release `{version}` not found in database.\n"
+        #                  f"Try `/rancher-release latest` or check available versions.")
+        #         return
+            
+        #     blocks = self._format_release_blocks(release)
+        #     await say(blocks=blocks)
+
+
         @self.app.command("/rancher-release")
-        async def handle_release(ack, command, say):
-            await ack()
-            
+        async def handle_release(ack, command, respond, logger):
+            await ack()  # ✅ first line always
+
             version = command.get('text', '').strip() or 'latest'
-            
+            logger.info(f"📝 /rancher-release {version}")
             print(f"📝 Slack command: /rancher-release {version}")
-            
-            if version == 'latest':
-                release = await self.db.get_latest_release()
-            else:
-                release = await self.db.get_release(version)
-            
-            if not release:
-                await say(f"❌ Release `{version}` not found in database.\n"
-                         f"Try `/rancher-release latest` or check available versions.")
-                return
-            
-            blocks = self._format_release_blocks(release)
-            await say(blocks=blocks)
+
+            try:
+                if version == 'latest':
+                    release = await self.db.get_latest_release()
+                else:
+                    release = await self.db.get_release(version)
+
+                if not release:
+                    await respond(
+                        f"❌ Release `{version}` not found in database.\n"
+                        f"Try `/rancher-release latest` or check available versions."
+                    )
+                    return
+
+                blocks = self._format_release_blocks(release)
+                await respond(blocks=blocks, text=f"Rancher {version} details")
+
+            except Exception as e:
+                logger.exception(f"Error in /rancher-release")
+                await respond(f"❌ Error fetching release: {str(e)}")
+
         
         @self.app.command("/rancher-compare")
-        async def handle_compare(ack, command, say):
+        async def handle_compare(ack, command, respond, logger):
             await ack()
             
             versions = command['text'].strip().split()
             
             if len(versions) != 2:
-                await say(
+                await respond(
                     "❌ *Usage:* `/rancher-compare <version1> <version2>`\n"
                     "*Example:* `/rancher-compare v2.12.0 v2.13.0`"
                 )
@@ -65,71 +103,128 @@ class SlackBot:
             print(f"📊 Slack command: /rancher-compare {versions[0]} {versions[1]}")
             
             # Show loading message
-            await say(f"⏳ Comparing {versions[0]} and {versions[1]}...")
+            await respond(f"⏳ Comparing {versions[0]} and {versions[1]}...")
             
             comparison = await self.ai.compare_versions(versions[0], versions[1])
             blocks = self._format_comparison_blocks(comparison, versions[0], versions[1])
-            await say(blocks=blocks)
+            await respond(blocks=blocks)
         
+        # @self.app.command("/rancher-search")
+        # async def handle_search(ack, command, say):
+        #     await ack()
+            
+        #     query = command['text'].strip()
+            
+        #     if not query:
+        #         await say(
+        #             "❌ *Usage:* `/rancher-search <keyword>`\n"
+        #             "*Example:* `/rancher-search security` or `/rancher-search v2.13`"
+        #         )
+        #         return
+            
+        #     print(f"🔍 Slack command: /rancher-search {query}")
+            
+        #     results = await self.db.search_releases(query)
+            
+        #     if not results:
+        #         await say(f"❌ No releases found matching: `{query}`")
+        #         return
+            
+        #     blocks = self._format_search_results(results, query)
+        #     await say(blocks=blocks)
+
         @self.app.command("/rancher-search")
-        async def handle_search(ack, command, say):
-            await ack()
-            
-            query = command['text'].strip()
-            
+        async def handle_search(ack, command, respond, logger):
+            await ack()  # ✅ first line always
+
+            query = command.get('text', '').strip()
+
             if not query:
-                await say(
+                await respond(
                     "❌ *Usage:* `/rancher-search <keyword>`\n"
                     "*Example:* `/rancher-search security` or `/rancher-search v2.13`"
                 )
                 return
-            
-            print(f"🔍 Slack command: /rancher-search {query}")
-            
-            results = await self.db.search_releases(query)
-            
-            if not results:
-                await say(f"❌ No releases found matching: `{query}`")
-                return
-            
-            blocks = self._format_search_results(results, query)
-            await say(blocks=blocks)
+
+            logger.info(f"🔍 /rancher-search {query}")
+
+            try:
+                results = await self.db.search_releases(query)
+
+                if not results:
+                    await respond(f"❌ No releases found matching: `{query}`")
+                    return
+
+                blocks = self._format_search_results(results, query)
+                await respond(blocks=blocks, text=f"Search results for: {query}")
+
+            except Exception as e:
+                logger.exception(f"Error in /rancher-search")
+                await respond(f"❌ Error searching releases: {str(e)}")
+
         
-        @self.app.event("app_mention")
-        async def handle_mention(event, say):
-            """Handle @mentions of the bot"""
-            text = event.get('text', '').lower()
+        # @self.app.event("app_mention")
+        # async def handle_mention(event, say):
+        #     """Handle @mentions of the bot"""
+        #     text = event.get('text', '').lower()
             
-            if 'latest' in text:
-                release = await self.db.get_latest_release()
-                if release:
-                    blocks = self._format_release_blocks(release)
-                    await say(blocks=blocks)
-            elif 'help' in text:
-                await say(self._get_help_message())
-            else:
-                await say(
-                    "👋 Hi! I'm the Rancher Release Bot.\n"
-                    "Try `/rancher-release latest` or `/rancher-search <keyword>`\n"
-                    "Type `@Rancher Bot help` for more commands."
-                )
+        #     if 'latest' in text:
+        #         release = await self.db.get_latest_release()
+        #         if release:
+        #             blocks = self._format_release_blocks(release)
+        #             await say(blocks=blocks)
+        #     elif 'help' in text:
+        #         await say(self._get_help_message())
+        #     else:
+        #         await say(
+        #             "👋 Hi! I'm the Rancher Release Bot.\n"
+        #             "Try `/rancher-release latest` or `/rancher-search <keyword>`\n"
+        #             "Type `@Rancher Bot help` for more commands."
+        #         )
+
+        @self.app.event("app_mention")
+        async def handle_mention(event, say, logger):
+            text = event.get('text', '').lower()
+            try:
+                if 'latest' in text:
+                    release = await self.db.get_latest_release()
+                    if release:
+                        blocks = self._format_release_blocks(release)
+                        await say(blocks=blocks, text="Latest Rancher release")
+                elif 'help' in text:
+                    await say(self._get_help_message())
+                else:
+                    await say(
+                        "👋 Hi! I'm the Rancher Release Bot.\n"
+                        "Try `/rancher-release latest` or `/rancher-search <keyword>`\n"
+                        "Type `@Rancher Bot help` for more commands."
+                    )
+            except Exception as e:
+                logger.exception("Error in app_mention")
+                await say(f"❌ Error: {str(e)}")
+        
     
     async def start(self):
-        """Start the Slack bot - FIXED for FastAPI compatibility"""
-        # Don't start a separate server - FastAPI will handle it
-        print("✅ Slack bot initialized (will use FastAPI endpoints)")
+       
+        """Start Socket Mode — opens outbound WebSocket to Slack"""
+        print("🔌 Starting Slack bot in Socket Mode...")
+        asyncio.create_task(self.socket_handler.start_async())
+        print("✅ Slack bot connected via WebSocket (Socket Mode)")
     
     async def stop(self):
-        """Stop the Slack bot"""
+        #"""Stop the Slack bot"""
         # No separate server to stop
-        pass
+        #pass
+        """Stop the Slack bot"""
+        await self.socket_handler.close_async()
+        print("✅ Slack bot disconnected")
     
-    def get_fastapi_handler(self):
-        """Get the FastAPI handler for Slack events"""
-        return self.handler
+    # def get_fastapi_handler(self):
+    #     """Get the FastAPI handler for Slack events"""
+    #     return self.handler
     
     async def notify_new_release(self, version: str, analysis: Dict):
-        """Send notification about new release"""
+        """Send notification about new release — outbound only, always works"""
         
         severity = analysis.get('severity', 'normal')
         
